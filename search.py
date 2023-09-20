@@ -1,9 +1,9 @@
-from utils import *
-
+from utils import month_to_number
 
 # download link
 def get_link(date_result):
-    year, month, day, hour, minute = month2num(date_result)
+    base_url = "https://archive.org/download/archiveteam-twitter-stream-"
+    year, month, day, _, _ = month_to_number(date_result)
 
     yearmonthday = str(year) + str(month) + str(day)
     year_month_day = str(year) + '_' + str(month) + '_' + str(day)
@@ -48,19 +48,3 @@ def get_link(date_result):
     else:
         url = ''
     return url
-
-
-delimiter = '|@|||$|'
-base_url = "https://archive.org/download/archiveteam-twitter-stream-"
-
-
-search_id = [1327880655091458050, 823004070155866112, 1296904746960408577, 1136609521067913217]
-
-for i in search_id:
-    date_result = find_date(i)
-    link = get_link(date_result)
-    print(link)
-
-
-
-
