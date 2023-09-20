@@ -1,0 +1,6 @@
+Try to parrallelize the downloading
+Reduce the size of the json file
+Don't load all of the data file into memory
+    You can read line by line and check for id each time.
+
+move data file to only show date[]
