@@ -1,9 +1,9 @@
-from utils import month_to_number
+from utils import date_to_num
 
 # download link
 def get_link(date_result):
     base_url = "https://archive.org/download/archiveteam-twitter-stream-"
-    year, month, day, _, _ = month_to_number(date_result)
+    year, month, day, _, _ = date_to_num(date_result)
 
     yearmonthday = str(year) + str(month) + str(day)
     year_month_day = str(year) + '_' + str(month) + '_' + str(day)

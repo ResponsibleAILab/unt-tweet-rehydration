@@ -1,26 +1,43 @@
 import os
 import sys
 import json
-from typing import List, Tuple
-from utils import find_date, date_to_num, download_file, tar2json, zip2json
-from search import get_link
+import shutil
+from typing import List, Tuple, Dict
 
-if len(sys.argv) < 2:
-    raise Exception('Usage: python main.py [json ids_file]')
+from link import get_link
+from utils import find_dates, date_to_num, download_file, untar_file, date_to_file, get_tweets_from_bz2, unzip_file
 
-file_name = sys.argv[1]
-if not os.path.exists(file_name):
-    raise Exception(f'Error: file \"{file_name}\" does not exist')
+# Check arguments
+# if len(sys.argv) < 3:
+#     raise Exception('Usage: python main.py [json ids_file] [json output_file]')
 
+# # Check if output file already exists
+# output_file = sys.argv[2]
+# if os.path.exists(output_file):
+#     raise Exception(f'Error: file \"{output_file}\" already exists')
+
+# # Check if id file exists
+# ids_file = sys.argv[1]
+# if not os.path.exists(ids_file):
+#     raise Exception(f'Error: file \"{ids_file}\" does not exist')
+
+ids_file = 'ids.json'
+output_file = 'tweets.json'
+
+# Validate ids file
 ids = []
-with open(file_name, 'r', encoding='utf-8') as f:
+with open(ids_file, 'r', encoding='utf-8') as f:
     try:
         ids = json.loads(f.read())
     except:
-        raise Exception(f"Error: could not parse file \"{file_name}\", is the json formatting correct?")
-    if not isinstance(ids, List):
-        raise Exception("Error: json file must be a list of ids")
+        raise Exception(f"Error: could not parse file \"{ids_file}\", is the json formatting correct?")
+    if not isinstance(ids, List) and not isinstance(ids, Dict) or isinstance(ids, Dict) and 'ids' not in ids:
+        raise Exception("Error: json file must be a list of ids or an object with a list of ids")
+    
+    if isinstance(ids, Dict):
+        ids = ids["ids"]
 
+# Parse ids into integers
 new_ids = []
 for id in ids:
     try:
@@ -28,23 +45,32 @@ for id in ids:
     except:
         raise Exception(f'Error: Could not convert id {id} to an integer')
 
+# Check for empty list
 ids = new_ids
+if len(ids) == 0:
+    raise Exception('Error: Found 0 ids, exiting')
+
+print(f'Info: {len(ids)} tweet ids in input file, finding date information for ids')
+
+# Find date information for ids
+tups = find_dates(ids)
+
+print(f'Info: found {len(tups)} of {len(ids)} input id dates ({len(tups) / len(ids) * 100:.0f}%)')
+
+if len(tups) == 0:
+    raise Exception('Error: Found 0 dates for ids, exiting')
 
 print(f'Info: found {len(ids)} ids, getting download links')
 
-# turn each id into a tuple (id, date)
-tups = []
-for id in ids:
-    # TODO: this is VERY slow
-    tups.append((id, find_date(id)))
-
 def sort_tups(tup: Tuple[int, str]):
     year, month, day, hour, minute = date_to_num(tup[1])
-    year = year - 2010
-    return minute + hour * 60 + day * 60 * 24 + month * 60 * 24 * 30 + year * 60 * 24 * 365
+    year = int(year) - 2010
+    return int(minute) +int(hour) * 60 + int(day) * 60 * 24 + int(month) * 60 * 24 * 30 + int(year) * 60 * 24 * 365
 
+# Sort by date
 tups = sorted(tups, key=sort_tups)
 
+# Group ids by date
 group_by_hm = { }
 current_date = None
 current_ids = []
@@ -56,13 +82,17 @@ for id, date in tups:
         current_date = date
     current_ids.append(id)
 
+group_by_hm[current_date] = current_ids
+
 def sort_dates(date: str):
     year, month, day, _, _ = date_to_num(date)
-    year = year - 2010
-    return day + month * 30 + year * 365
+    year = int(year) - 2010
+    return int(day) + int(month) * 30 + year * 365
 
+# Sort grouped dates
 keys = sorted(group_by_hm.keys(), key=sort_dates)
 
+# Get days to download
 days_to_download = []
 current_key = None
 for key in group_by_hm.keys():
@@ -71,6 +101,7 @@ for key in group_by_hm.keys():
         days_to_download.append(new_key)
         current_key = new_key
 
+# Aggregate data into one object
 links = []        
 for day in days_to_download:
     ids = []
@@ -79,7 +110,8 @@ for day in days_to_download:
         if day_key == day:
             ids.append({
                 "time": key,
-                "ids": group_by_hm[key]
+                "ids": group_by_hm[key],
+                "file": date_to_file(key)
             })
     links.append({
         "day": day, 
@@ -87,6 +119,7 @@ for day in days_to_download:
         "ids": ids
     })
 
+# Show user the files that will be downloaded
 print(f'Info: Found {len(links)} days of tweets to download:')
 for obj in links:
     day = obj["day"]
@@ -95,46 +128,79 @@ for obj in links:
 
 print('Info: Now Downloading files:')
 
+# Create downloads folder if needed
 download_folder = 'downloads'
 if not os.path.exists(download_folder):
     os.mkdir(download_folder)
 
-
+# Create extraction folder if needed
 extract_folder = 'extracted_files'
-if not os.path.exists(os.mkdir(extract_folder)):
+if not os.path.exists(extract_folder):
     os.mkdir(extract_folder)
 
-if not os.path.exists(f'{extract_folder}/zip'):
-    os.mkdir(f'{extract_folder}/zip')
-
-if not os.path.exists(f'{extract_folder}/tar'):
-    os.mkdir(f'{extract_folder}/tar')
-
+# Download links one at a time
+num_found_tweets = 0
 for obj in links:
     day = obj["day"]
     extension = obj['link'][-4:]
-    download_dest = f'{download_folder}/{extension[-3:]}/{day}{extension}'
+    download_dest = f'{download_folder}/{day}{extension}'
 
-    # TODO: Don't skip the day and determine if the archive contents has already been extracted
+    # Don't download file if found already
     if os.path.exists(download_dest):
-        print(f'Warning: Found data already at {download_dest} skipping this day...')
-        continue
-    print(f'Info: Downloading data for {day} to {download_dest}...')
-    success = download_file(obj['link'], download_dest)
-    # If the download did not succeed, skip this day
-    if not success:
-        continue
+        print(f'Warning: Found data already at \"{download_dest}\" moving to extraction phase')
+    else:
+        print(f'Info: Downloading data for {day} to {download_dest}...')
+        link = obj['link']
+        success = download_file(link, download_dest)
+        if success:
+            print('Info: Download succeeded, extracting folder')
+        else:
+            print(f'Warning: Download failed for \"{link}\", going to next link')
+            continue
     
-    print('Info: Download succeeded, extracting folder')
-    extract_dest = f'{extract_folder}/{extension[-3:]}/{day}'
-    final_dest = f'{extract_folder}/{day}'
+    extract_dest = f'{extract_folder}/{day}'
 
+    # Delete extraction folder if it already exists
+    if os.path.exists(extract_dest):
+        shutil.rmtree(extract_dest)
+
+    all_tweets = []
     if extension == '.tar':
-        tar2json(download_dest, extract_dest, final_dest)
+        untar_file(download_dest, extract_dest)
     
     if extension == '.zip':
-        zip2json(download_dest, extract_dest, final_dest)
+        unzip_file(download_dest, extract_dest)
 
-    print(f'Info: Extraction complete contents extracted to {final_dest}')
+    print('Info: Extraction complete')
+    
+    # For each group of ids (by hour/minute)  find the bz2 file, extract the json, and then find the tweets needed
+    for id_obj in obj["ids"]:
+        file = extract_dest + '/' + id_obj["file"]
+        for tweet in get_tweets_from_bz2(file, id_obj["ids"]):
+            all_tweets.append(tweet)
 
-    # TODO: Find tweet ids in downloaded files
+    # Clean up extraction data
+    shutil.rmtree(extract_dest)
+
+    # Find ids currently in file, this allows for stopping and starting downloads at a later time
+    current_ids = []
+    with open(output_file, 'r', encoding='utf-8') as f:
+        line = f.readline()
+        while line:
+            data = json.loads(line)
+            current_ids.append(data["id"])
+            line = f.readline()
+
+    # Write output file
+    with open(output_file, 'a', encoding='utf-8') as f:
+        for tweet in all_tweets:
+            if tweet["id"] not in current_ids:
+                f.write(json.dumps(tweet) + '\n')
+    
+    print(f'Info: wrote {len(all_tweets)} tweets to {output_file}')
+    num_found_tweets += len(all_tweets)
+
+# Delete extraction folder that is not needed, downloads folder is kept for backups
+shutil.rmtree(extract_folder)
+
+print(f'Info: Done processing files, found {num_found_tweets} out of {len(ids)} ({num_found_tweets / len(ids) * 100:.0f}%)')

@@ -1,1 +1,6 @@
 data/
+__pycache__/
+ids.json
+tweets.json
+downloads/
+extracted_files/
