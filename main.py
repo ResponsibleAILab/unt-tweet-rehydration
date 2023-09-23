@@ -31,11 +31,11 @@ with open(ids_file, 'r', encoding='utf-8') as f:
         ids = json.loads(f.read())
     except:
         raise Exception(f"Error: could not parse file \"{ids_file}\", is the json formatting correct?")
-    if not isinstance(ids, List) and not isinstance(ids, Dict) or isinstance(ids, Dict) and 'ids' not in ids:
-        raise Exception("Error: json file must be a list of ids or an object with a list of ids")
+    if not isinstance(ids, List) and not isinstance(ids, Dict) or isinstance(ids, Dict) and 'twitter_ids' not in ids:
+        raise Exception("Error: json file must be a list of ids or an object with a list of ids with the key \"twitter_ids\"")
     
     if isinstance(ids, Dict):
-        ids = ids["ids"]
+        ids = ids["twitter_ids"]
 
 # Parse ids into integers
 new_ids = []

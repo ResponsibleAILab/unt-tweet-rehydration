@@ -12,8 +12,8 @@ def find_dates(ids: List[int]):
     with open('./data/dict_data_hm.json', 'r') as file:
         json_data = json.loads(file.read())
 
-    for id in ids:
-        for date in json_data.keys():
+    for date in json_data.keys():
+        for id in ids:
             min = json_data[date]["min"]
             max = json_data[date]["max"]
             if min <= id <= max:
