@@ -69,6 +69,7 @@ def sort_tups(tup: Tuple[int, str]):
 
 # Sort by date
 tups = sorted(tups, key=sort_tups)
+# print(tups)
 
 # Group ids by date
 group_by_hm = { }
@@ -159,6 +160,7 @@ for obj in links:
             continue
     
     extract_dest = f'{extract_folder}/{day}'
+    # print(extract_dest)
 
     # Delete extraction folder if it already exists
     if os.path.exists(extract_dest):
@@ -176,20 +178,24 @@ for obj in links:
     # For each group of ids (by hour/minute)  find the bz2 file, extract the json, and then find the tweets needed
     for id_obj in obj["ids"]:
         file = extract_dest + '/' + id_obj["file"]
-        for tweet in get_tweets_from_bz2(file, id_obj["ids"]):
-            all_tweets.append(tweet)
+        # print(file)
+        all_tweets = get_tweets_from_bz2(file, id_obj["ids"])
+        # for tweet in get_tweets_from_bz2(file, id_obj["ids"]):
+        #     all_tweets.append(tweet)
 
+    # print(all_tweets)
     # Clean up extraction data
     shutil.rmtree(extract_dest)
 
     # Find ids currently in file, this allows for stopping and starting downloads at a later time
-    current_ids = []
-    with open(output_file, 'r', encoding='utf-8') as f:
-        line = f.readline()
-        while line:
-            data = json.loads(line)
-            current_ids.append(data["id"])
+    if os.path.exists(output_file):
+        current_ids = []
+        with open(output_file, 'r', encoding='utf-8') as f:
             line = f.readline()
+            while line:
+                data = json.loads(line)
+                current_ids.append(data["id"])
+                line = f.readline()
 
     # Write output file
     with open(output_file, 'a', encoding='utf-8') as f:
@@ -201,6 +207,6 @@ for obj in links:
     num_found_tweets += len(all_tweets)
 
 # Delete extraction folder that is not needed, downloads folder is kept for backups
-shutil.rmtree(extract_folder)
+# shutil.rmtree(extract_folder)
 
 print(f'Info: Done processing files, found {num_found_tweets} out of {len(ids)} ({num_found_tweets / len(ids) * 100:.0f}%)')

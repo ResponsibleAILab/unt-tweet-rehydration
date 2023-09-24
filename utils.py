@@ -57,8 +57,8 @@ def download_file(url, save_path) -> bool:
     return False
 
 def date_to_file(date: str) -> str:
-    _, _, day, hour, minute = date_to_num(date)
-    return str(day) + '/' + str(hour) + '/' + str(minute) + '.json.bz2'
+    _, month, day, hour, minute = date_to_num(date)
+    return str(month) + '/' + str(day) + '/' + str(hour) + '/' + str(minute) + '.json.bz2'
 
 # unzip file
 def unzip_file(zip_path, extract_path):
@@ -70,17 +70,25 @@ def untar_file(file_path, extract_path):
     with tarfile.open(file_path, 'r') as tar:
         tar.extractall(path=extract_path)
 
-def get_tweets_from_bz2(bz2_file, ids: List[int]) -> str:
+def get_tweets_from_bz2(bz2_file, ids: List[int]) -> list:
     # Open .bz2 file for reading and create output file for writing
     result = []
     with bz2.open(bz2_file, 'rb') as source_file:
         line = source_file.readline()
+        # print(line)
         while line:
             json_element = json.loads(line)
+            # print(json_element)
             if 'created_at' in json_element:
+                # print("YES!!!")
                 for tid in ids:
+                    # print(json_element)
+                    # print(tid)
+                    # print(type(tid))
+                    # print(json_element['id'])
                     if tid == json_element['id']:
                         result.append(json_element)
                         break
             line = source_file.readline()
+    # print(result)
     return result
