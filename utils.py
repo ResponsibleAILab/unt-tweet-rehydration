@@ -56,9 +56,12 @@ def download_file(url, save_path) -> bool:
         print(f"Request Exception: {e}")
     return False
 
-def date_to_file(date: str) -> str:
-    _, month, day, hour, minute = date_to_num(date)
-    return str(month) + '/' + str(day) + '/' + str(hour) + '/' + str(minute) + '.json.bz2'
+def date_to_file(date: str, extension: str) -> str:
+    year, month, day, hour, minute = date_to_num(date)
+    if extension == '.zip':
+        return str(year) + '/' + str(month) + '/' + str(day) + '/' + str(hour) + '/' + str(minute) + '.json.bz2'
+    else:
+        return str(month) + '/' + str(day) + '/' + str(hour) + '/' + str(minute) + '.json.bz2'
 
 # unzip file
 def unzip_file(zip_path, extract_path):
@@ -75,17 +78,10 @@ def get_tweets_from_bz2(bz2_file, ids: List[int]) -> list:
     result = []
     with bz2.open(bz2_file, 'rb') as source_file:
         line = source_file.readline()
-        # print(line)
         while line:
             json_element = json.loads(line)
-            # print(json_element)
             if 'created_at' in json_element:
-                # print("YES!!!")
                 for tid in ids:
-                    # print(json_element)
-                    # print(tid)
-                    # print(type(tid))
-                    # print(json_element['id'])
                     if tid == json_element['id']:
                         result.append(json_element)
                         break

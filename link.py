@@ -4,6 +4,7 @@ from utils import date_to_num
 def get_link(date_result):
     base_url = "https://archive.org/download/archiveteam-twitter-stream-"
     year, month, day, _, _ = date_to_num(date_result)
+    # print(f"{year} {month} {day}")
 
     yearmonthday = str(year) + str(month) + str(day)
     year_month_day = str(year) + '_' + str(month) + '_' + str(day)
@@ -12,7 +13,7 @@ def get_link(date_result):
     twitterdstream = "twitter-stream-"
     twitter_stream = "twitter_stream_"
 
-    if year == 2021:
+    if int(year) == 2021:
         if int(month) <= 7:
             url = base_url + str(year) + '-' + str(month) + '/' + twitterdstream + yeardmonthdday + ".zip"
         else:

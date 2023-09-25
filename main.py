@@ -21,6 +21,11 @@ from utils import find_dates, date_to_num, download_file, untar_file, date_to_fi
 # if not os.path.exists(ids_file):
 #     raise Exception(f'Error: file \"{ids_file}\" does not exist')
 
+
+# test input: {"twitter_ids":["1267433197312389123", "1410539511088484357"]}
+# {"twitter_ids":["1275688887810211844"]}
+
+
 ids_file = 'ids.json'
 output_file = 'tweets.json'
 
@@ -103,16 +108,17 @@ for key in group_by_hm.keys():
         current_key = new_key
 
 # Aggregate data into one object
-links = []        
+links = []
 for day in days_to_download:
     ids = []
     for key in group_by_hm.keys():
         day_key = key[:10]
         if day_key == day:
+            extension = get_link(f'{day}-00-00')[-4:]
             ids.append({
                 "time": key,
                 "ids": group_by_hm[key],
-                "file": date_to_file(key)
+                "file": date_to_file(key, extension)
             })
     links.append({
         "day": day, 
@@ -160,7 +166,6 @@ for obj in links:
             continue
     
     extract_dest = f'{extract_folder}/{day}'
-    # print(extract_dest)
 
     # Delete extraction folder if it already exists
     if os.path.exists(extract_dest):
@@ -174,16 +179,16 @@ for obj in links:
         unzip_file(download_dest, extract_dest)
 
     print('Info: Extraction complete')
-    
+
     # For each group of ids (by hour/minute)  find the bz2 file, extract the json, and then find the tweets needed
     for id_obj in obj["ids"]:
-        file = extract_dest + '/' + id_obj["file"]
-        # print(file)
-        all_tweets = get_tweets_from_bz2(file, id_obj["ids"])
-        # for tweet in get_tweets_from_bz2(file, id_obj["ids"]):
-        #     all_tweets.append(tweet)
+        for path, _, bz_files in os.walk(extract_dest):
+            for bz_file in bz_files:
+                file = path + '/' + bz_file
+                for tweet in get_tweets_from_bz2(file, id_obj["ids"]):
+                    all_tweets.append(tweet)
 
-    # print(all_tweets)
+
     # Clean up extraction data
     shutil.rmtree(extract_dest)
 
@@ -207,6 +212,9 @@ for obj in links:
     num_found_tweets += len(all_tweets)
 
 # Delete extraction folder that is not needed, downloads folder is kept for backups
-# shutil.rmtree(extract_folder)
+shutil.rmtree(extract_folder)
+
+# Delete downloaded zip or tar data (Do it in final edition)
+# shutil.rmtree(download_folder)
 
 print(f'Info: Done processing files, found {num_found_tweets} out of {len(ids)} ({num_found_tweets / len(ids) * 100:.0f}%)')
